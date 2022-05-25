@@ -380,6 +380,26 @@ CellularError_t Cellular_CommonCreateSocket( CellularHandle_t cellularHandle,
         LogError( ( "_Cellular_IsValidPdn failed" ) );
         cellularStatus = CELLULAR_INVALID_HANDLE;
     }
+    else if( ( socketType < CELLULAR_SOCKET_TYPE_DGRAM ) || ( socketType > CELLULAR_SOCKET_TYPE_STREAM ) )
+    {
+        LogError( ( "socketType=%d is invalid.", socketType ) );
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
+    else if( ( socketProtocol < CELLULAR_SOCKET_PROTOCOL_UDP ) || ( socketProtocol > CELLULAR_SOCKET_PROTOCOL_TCP ) )
+    {
+        LogError( ( "socketProtocol=%d is invalid.", socketProtocol ) );
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
+    else if( ( socketType == CELLULAR_SOCKET_TYPE_DGRAM ) && ( socketProtocol != CELLULAR_SOCKET_PROTOCOL_UDP ) )
+    {
+        LogError( ( "socketType is datagram but socketProtocol is TCP." ) );
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
+    else if( ( socketType == CELLULAR_SOCKET_TYPE_STREAM ) && ( socketProtocol != CELLULAR_SOCKET_PROTOCOL_TCP ) )
+    {
+        LogError( ( "socketType is stream but socketProtocol is UDP." ) );
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
     else
     {
         cellularStatus = _Cellular_CreateSocketData( pContext, pdnContextId,
