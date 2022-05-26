@@ -390,14 +390,9 @@ CellularError_t Cellular_CommonCreateSocket( CellularHandle_t cellularHandle,
         LogError( ( "socketProtocol=%d is invalid.", socketProtocol ) );
         cellularStatus = CELLULAR_BAD_PARAMETER;
     }
-    else if( ( socketType == CELLULAR_SOCKET_TYPE_DGRAM ) && ( socketProtocol != CELLULAR_SOCKET_PROTOCOL_UDP ) )
+    else if( ( socketType != ( CellularSocketType_t ) socketProtocol ) )
     {
-        LogError( ( "socketType is datagram but socketProtocol is TCP." ) );
-        cellularStatus = CELLULAR_BAD_PARAMETER;
-    }
-    else if( ( socketType == CELLULAR_SOCKET_TYPE_STREAM ) && ( socketProtocol != CELLULAR_SOCKET_PROTOCOL_TCP ) )
-    {
-        LogError( ( "socketType is stream but socketProtocol is UDP." ) );
+        LogError( ( "socketType is %d but socketProtocol is %d.", socketType, socketProtocol ) );
         cellularStatus = CELLULAR_BAD_PARAMETER;
     }
     else
