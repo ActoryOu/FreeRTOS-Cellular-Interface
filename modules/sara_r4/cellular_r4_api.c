@@ -880,7 +880,7 @@ CellularError_t Cellular_SocketConnect( CellularHandle_t cellularHandle,
         LogDebug( ( "Cellular_SocketConnect: Invalid socket handle" ) );
         cellularStatus = CELLULAR_INVALID_HANDLE;
     }
-    else if( ( socketHandle->socketProtocol != CELLULAR_SOCKET_PROTOCOL_TCP ) || ( socketHandle->socketProtocol != CELLULAR_SOCKET_PROTOCOL_UDP ) )
+    else if( ( socketHandle->socketProtocol != CELLULAR_SOCKET_PROTOCOL_TCP ) && ( socketHandle->socketProtocol != CELLULAR_SOCKET_PROTOCOL_UDP ) )
     {
         LogDebug( ( "Cellular_SocketConnect: Invalid socket protocol" ) );
         cellularStatus = CELLULAR_BAD_PARAMETER;
