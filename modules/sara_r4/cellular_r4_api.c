@@ -908,17 +908,18 @@ CellularError_t Cellular_SocketConnect( CellularHandle_t cellularHandle,
         }
     }
 
-    /* Start the tcp connection. */
+    /* Start the tcp/udp connection. */
     if( cellularStatus == CELLULAR_SUCCESS )
     {
         /* The return value of snprintf is not used.
          * The max length of the string is fixed and checked offline. */
         /* coverity[misra_c_2012_rule_21_6_violation]. */
         ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_MAX_SIZE,
-                           "AT+USOCO=%u,\"%s\",%d,1",
+                           "AT+USOCO=%u,\"%s\",%d,%d",
                            sessionId,
                            socketHandle->remoteSocketAddress.ipAddress.ipAddress,
-                           socketHandle->remoteSocketAddress.port );
+                           socketHandle->remoteSocketAddress.port,
+                           socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP ? 1 : 0 );
 
         pktStatus = _Cellular_TimeoutAtcmdRequestWithCallback( pContext, atReqSocketConnect,
                                                                SOCKET_CONNECT_PACKET_REQ_TIMEOUT_MS );
