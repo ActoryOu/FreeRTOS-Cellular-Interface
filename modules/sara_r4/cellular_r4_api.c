@@ -69,6 +69,8 @@
 #define SOCKET_DATA_PREFIX_STRING_LENGTH        ( SOCKET_DATA_PREFIX_TOKEN_LEN + 9U )
 #define RAT_PRIOIRTY_LIST_LENGTH                ( 3U )
 
+#define CELLULAR_USOCO_ASYNC_CONN_BUFFER_SIZE   ( 1U )
+
 /**
  * @brief Parameters involved in receiving data through sockets
  */
@@ -912,14 +914,19 @@ CellularError_t Cellular_SocketConnect( CellularHandle_t cellularHandle,
     if( cellularStatus == CELLULAR_SUCCESS )
     {
         /* The return value of snprintf is not used.
-         * The max length of the string is fixed and checked offline. */
+         * The max length of the string is fixed and checked offline.
+         * Reserve 2 bytes for async_connect flag for TCP. */
         /* coverity[misra_c_2012_rule_21_6_violation]. */
-        ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_MAX_SIZE,
-                           "AT+USOCO=%u,\"%s\",%d,%d",
+        ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_MAX_SIZE - ( CELLULAR_USOCO_ASYNC_CONN_BUFFER_SIZE + 1 ),
+                           "AT+USOCO=%u,\"%s\",%d",
                            sessionId,
                            socketHandle->remoteSocketAddress.ipAddress.ipAddress,
-                           socketHandle->remoteSocketAddress.port,
-                           socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP ? 1 : 0 );
+                           socketHandle->remoteSocketAddress.port );
+        
+        if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP )
+        {
+            strcat( cmdBuf, ",1" );
+        }
 
         pktStatus = _Cellular_TimeoutAtcmdRequestWithCallback( pContext, atReqSocketConnect,
                                                                SOCKET_CONNECT_PACKET_REQ_TIMEOUT_MS );
