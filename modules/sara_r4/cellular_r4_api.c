@@ -936,6 +936,10 @@ CellularError_t Cellular_SocketConnect( CellularHandle_t cellularHandle,
             LogError( ( "Cellular_SocketConnect: Socket connect failed, cmdBuf:%s, PktRet: %d", cmdBuf, pktStatus ) );
             cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
         }
+        else if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_UDP )
+        {
+            socketHandle->socketState = SOCKETSTATE_CONNECTED;
+        } 
         else
         {
             socketHandle->socketState = SOCKETSTATE_CONNECTING;
