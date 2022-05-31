@@ -226,7 +226,7 @@ static CellularATError_t getDataFromResp( const CellularATCommandResponse_t * pA
     /* Check if the received data size is greater than the output buffer size. */
     if( *pDataRecv->pDataLen > outBufSize )
     {
-        LogError( ( "Data is turncated, received data length %u, out buffer size %u",
+        LogError( ( "Data is truncated, received data length %u, out buffer size %u",
                     *pDataRecv->pDataLen, outBufSize ) );
         dataLenToCopy = outBufSize;
         *pDataRecv->pDataLen = outBufSize;
@@ -461,9 +461,11 @@ static CellularError_t _Cellular_GetSocketNumber( CellularHandle_t cellularHandl
     CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char cmdBufTcp[] = "AT+USOCR=6,0";
+    char cmdBufUdp[] = "AT+USOCR=17,0";
     CellularAtReq_t atReqSocketConnect =
     {
-        "AT+USOCR=6,0",
+        NULL,
         CELLULAR_AT_WITH_PREFIX,
         "+USOCR",
         _Cellular_RecvFuncGetSocketId,
@@ -474,6 +476,20 @@ static CellularError_t _Cellular_GetSocketNumber( CellularHandle_t cellularHandl
     ( void ) socketHandle;
 
     atReqSocketConnect.pData = pSessionId;
+
+    if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP )
+    {
+        atReqSocketConnect.pAtCmd = cmdBufTcp;
+    }
+    else if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_UDP )
+    {
+        atReqSocketConnect.pAtCmd = cmdBufUdp;
+    }
+    else
+    {
+        LogError( ( "_Cellular_GetSocketNumber: Invalid protocol %d", socketHandle->socketProtocol ) );
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
 
     /* Internal function. Caller checks parameters. */
 
