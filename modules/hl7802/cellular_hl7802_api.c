@@ -571,8 +571,6 @@ static CellularError_t buildUdpSocketConfig( CellularSocketHandle_t socketHandle
                                              char * pCmdBuf )
 {
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
-    /* +1 size in portBuf for ',' */
-    char portBuf[ CELLULAR_PORT_NUM_CHAR_LEN + 1 ] = { 0 };
 
     if( pCmdBuf == NULL )
     {
@@ -593,20 +591,11 @@ static CellularError_t buildUdpSocketConfig( CellularSocketHandle_t socketHandle
          * The max length of the string is fixed and checked offline. */
         /* coverity[misra_c_2012_rule_21_6_violation]. */
         ( void ) snprintf( pCmdBuf, CELLULAR_AT_CMD_MAX_SIZE,
-                           "AT+KUDPCFG=%u,0,\"%s\",%u",
+                           "AT+KUDPCFG=%u,0,%u,0,\"%s\",%u",
                            socketHandle->contextId,
+                           socketHandle->localPort,
                            socketHandle->remoteSocketAddress.ipAddress.ipAddress,
                            socketHandle->remoteSocketAddress.port );
-
-        /* Set the local port in the end of command buffer string if localPort is not 0. */
-        if( socketHandle->localPort > 0 )
-        {
-            ( void ) snprintf( portBuf, 7,
-                               ",%u",
-                               socketHandle->localPort );
-
-            cellularStatus = _Cellular_StrCat( pCmdBuf, portBuf, CELLULAR_AT_CMD_MAX_SIZE );
-        }
     }
 
     return cellularStatus;
@@ -1683,9 +1672,6 @@ CellularError_t Cellular_SocketSend( CellularHandle_t cellularHandle,
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     uint32_t sendTimeout = CELLULAR_HL7802_AT_TIMEOUT_60_SECONDS_MS;
     char cmdBuf[ CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
-    char tcpSendAtCmd[] = "AT+KTCPSND=";
-    char udpSendAtCmd[] = "AT+KUDPSND=";
-    char * pSendAtCmd = NULL;
     CellularAtReq_t atReqSocketSend =
     {
         cmdBuf,
@@ -1758,32 +1744,37 @@ CellularError_t Cellular_SocketSend( CellularHandle_t cellularHandle,
         {
             sendTimeout = socketHandle->sendTimeoutMs;
         }
-
-        /* Check socket protocol. */
-        if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP )
-        {
-            pSendAtCmd = tcpSendAtCmd;
-        }
-        else if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_UDP )
-        {
-            pSendAtCmd = udpSendAtCmd;
-        }
-        else
-        {
-            LogError( ( "Cellular_SocketSend: Invalid socket protocol type %d", socketHandle->socketProtocol ) );
-            cellularStatus = CELLULAR_BAD_PARAMETER;
-        }
     }
 
     if( cellularStatus == CELLULAR_SUCCESS )
     {
         /* Form the AT command. */
 
-        /* The return value of snprintf is not used.
-         * The max length of the string is fixed and checked offline. */
-        /* coverity[misra_c_2012_rule_21_6_violation]. */
-        ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%u,%u",
-                           pSendAtCmd, sessionId, atDataReqSocketSend.dataLen );
+        /* Check socket protocol. */
+        if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP )
+        {
+            /* The return value of snprintf is not used.
+             * The max length of the string is fixed and checked offline. */
+            /* coverity[misra_c_2012_rule_21_6_violation]. */
+            ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%u,%u",
+                               "AT+KTCPSND=", sessionId, atDataReqSocketSend.dataLen );
+        }
+        else if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_UDP )
+        {
+            /* The return value of snprintf is not used.
+             * The max length of the string is fixed and checked offline. */
+            /* coverity[misra_c_2012_rule_21_6_violation]. */
+            ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%u,\"%s\",%u,%u",
+                               "AT+KUDPSND=",
+                               sessionId,
+                               socketHandle->remoteSocketAddress.ipAddress.ipAddress,
+                               socketHandle->remoteSocketAddress.port, atDataReqSocketSend.dataLen );
+        }
+        else
+        {
+            LogError( ( "Cellular_SocketSend: Invalid socket protocol type %d", socketHandle->socketProtocol ) );
+            cellularStatus = CELLULAR_BAD_PARAMETER;
+        }
 
         pktStatus = _Cellular_TimeoutAtcmdDataSendSuccessToken( pContext, atReqSocketSend, atDataReqSocketSend,
                                                                 CELLULAR_HL7802_AT_TIMEOUT_60_SECONDS_MS, sendTimeout,
