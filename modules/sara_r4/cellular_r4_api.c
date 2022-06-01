@@ -44,32 +44,32 @@
 /*-----------------------------------------------------------*/
 
 /* TODO : confirm the value. */
-#define PDN_ACT_PACKET_REQ_TIMEOUT_MS           ( 150000UL )
+#define PDN_ACT_PACKET_REQ_TIMEOUT_MS            ( 150000UL )
 
-#define PDN_DEACT_PACKET_REQ_TIMEOUT_MS         ( 40000UL )
+#define PDN_DEACT_PACKET_REQ_TIMEOUT_MS          ( 40000UL )
 
-#define GPRS_ATTACH_REQ_TIMEOUT_MS              ( 180000UL )
+#define GPRS_ATTACH_REQ_TIMEOUT_MS               ( 180000UL )
 
-#define DNS_QUERY_REQ_TIMEOUT_MS                ( 120000UL )
+#define DNS_QUERY_REQ_TIMEOUT_MS                 ( 120000UL )
 
-#define SOCKET_CLOSE_PACKET_REQ_TIMEOUT_MS      ( 120000U )
+#define SOCKET_CLOSE_PACKET_REQ_TIMEOUT_MS       ( 120000U )
 
-#define SOCKET_CONNECT_PACKET_REQ_TIMEOUT_MS    ( 120000U )
+#define SOCKET_CONNECT_PACKET_REQ_TIMEOUT_MS     ( 120000U )
 
-#define CELLULAR_AT_CMD_TYPICAL_MAX_SIZE        ( 32U )
+#define CELLULAR_AT_CMD_TYPICAL_MAX_SIZE         ( 32U )
 
-#define DATA_SEND_TIMEOUT_MS                    ( 10000U )
+#define DATA_SEND_TIMEOUT_MS                     ( 10000U )
 
-#define PACKET_REQ_TIMEOUT_MS                   ( 10000U )
+#define PACKET_REQ_TIMEOUT_MS                    ( 10000U )
 
-#define DATA_READ_TIMEOUT_MS                    ( 50000UL )
+#define DATA_READ_TIMEOUT_MS                     ( 50000UL )
 
-#define SOCKET_DATA_PREFIX_TOKEN                "+USORD: "
-#define SOCKET_DATA_PREFIX_TOKEN_LEN            ( 8U )
-#define SOCKET_DATA_PREFIX_STRING_LENGTH        ( SOCKET_DATA_PREFIX_TOKEN_LEN + 9U )
-#define RAT_PRIOIRTY_LIST_LENGTH                ( 3U )
+#define SOCKET_DATA_PREFIX_TOKEN                 "+USORD: "
+#define SOCKET_DATA_PREFIX_TOKEN_LEN             ( 8U )
+#define SOCKET_DATA_PREFIX_STRING_LENGTH         ( SOCKET_DATA_PREFIX_TOKEN_LEN + 9U )
+#define RAT_PRIOIRTY_LIST_LENGTH                 ( 3U )
 
-#define CELLULAR_USOCO_ASYNC_CONN_BUFFER_SIZE   ( 1U )
+#define CELLULAR_USOCO_ASYNC_CONN_BUFFER_SIZE    ( 1U )
 
 /**
  * @brief Parameters involved in receiving data through sockets
@@ -770,6 +770,7 @@ CellularError_t Cellular_SocketClose( CellularHandle_t cellularHandle,
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     char cmdBuf[ CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
+    char asyncFlagBuf[ 2 ] = { 0 };
     CellularAtReq_t atReqSocketClose =
     {
         NULL,
@@ -820,8 +821,15 @@ CellularError_t Cellular_SocketClose( CellularHandle_t cellularHandle,
         /* Close the socket. */
         if( socketHandle->socketState == SOCKETSTATE_CONNECTED )
         {
-            ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%u,%d",
-                               "AT+USOCL=", sessionId, CELLULAR_CONFIG_SET_SOCKET_CLOSE_ASYNC_MODE );
+            ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE - sizeof( asyncFlagBuf ), "%s%u",
+                               "AT+USOCL=", sessionId );
+
+            if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP )
+            {
+                ( void ) snprintf( asyncFlagBuf, sizeof( asyncFlagBuf ), ",%d", CELLULAR_CONFIG_SET_SOCKET_CLOSE_ASYNC_MODE );
+                strcat( cmdBuf, asyncFlagBuf );
+            }
+
             pktStatus = _Cellular_TimeoutAtcmdRequestWithCallback( pContext, atReqSocketClose, SOCKET_CLOSE_PACKET_REQ_TIMEOUT_MS );
 
             /* Delete the socket config. */
@@ -922,7 +930,7 @@ CellularError_t Cellular_SocketConnect( CellularHandle_t cellularHandle,
                            sessionId,
                            socketHandle->remoteSocketAddress.ipAddress.ipAddress,
                            socketHandle->remoteSocketAddress.port );
-        
+
         if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP )
         {
             strcat( cmdBuf, ",1" );
@@ -939,7 +947,7 @@ CellularError_t Cellular_SocketConnect( CellularHandle_t cellularHandle,
         else if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_UDP )
         {
             socketHandle->socketState = SOCKETSTATE_CONNECTED;
-        } 
+        }
         else
         {
             socketHandle->socketState = SOCKETSTATE_CONNECTING;
