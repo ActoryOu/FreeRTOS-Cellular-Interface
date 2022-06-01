@@ -1671,7 +1671,7 @@ CellularError_t Cellular_SocketSend( CellularHandle_t cellularHandle,
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     uint32_t sendTimeout = CELLULAR_HL7802_AT_TIMEOUT_60_SECONDS_MS;
-    char cmdBuf[ CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
+    char cmdBuf[ CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
     CellularAtReq_t atReqSocketSend =
     {
         cmdBuf,
