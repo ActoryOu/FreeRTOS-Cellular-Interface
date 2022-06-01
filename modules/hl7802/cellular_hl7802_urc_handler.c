@@ -62,7 +62,9 @@ CellularAtParseTokenMap_t CellularUrcHandlerTable[] =
     { "CREG",       Cellular_CommonUrcProcessCreg  },
     { "KTCP_DATA",  _cellular_UrcProcessKtcpData   },         /* TCP data URC. */
     { "KTCP_IND",   _cellular_UrcProcessKtcpInd    },         /* TCP status URC. */
-    { "KTCP_NOTIF", _cellular_UrcProcessKtcpNotif  }          /* TCP connection failure. */
+    { "KTCP_NOTIF", _cellular_UrcProcessKtcpNotif  },         /* TCP connection failure. */
+    { "KUDP_DATA",  _cellular_UrcProcessKtcpData   },         /* UDP data URC. */
+    { "KUDP_IND",   _cellular_UrcProcessKtcpInd    }          /* UDP status URC. */
 };
 
 /* FreeRTOS Cellular Common Library porting interface. */

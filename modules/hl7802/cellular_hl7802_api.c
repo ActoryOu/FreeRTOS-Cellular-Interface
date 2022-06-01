@@ -1550,7 +1550,7 @@ CellularError_t Cellular_SocketRecv( CellularHandle_t cellularHandle,
         bufferLength,
     };
     socketStat_t socketStat = { 0 };
-    uint32_t socktCmdDataLength = 0;
+    uint32_t socktCmdDataLength = CELLULAR_MAX_RECV_DATA_LEN;
     uint32_t sessionId = 0;
 
     cellularStatus = _Cellular_CheckLibraryStatus( pContext );
@@ -1600,18 +1600,24 @@ CellularError_t Cellular_SocketRecv( CellularHandle_t cellularHandle,
 
     if( cellularStatus == CELLULAR_SUCCESS )
     {
-        /* Calculate the read length. */
-        cellularStatus = _Cellular_GetSocketStat( cellularHandle, socketHandle, &socketStat );
-
-        if( ( cellularStatus == CELLULAR_SUCCESS ) && ( socketStat.status == TCP_SOCKET_STATE_CONNECTION_UP ) )
+        if( socketHandle->socketProtocol == CELLULAR_SOCKET_PROTOCOL_TCP )
         {
-            socktCmdDataLength = socketStat.rcvData;
-        }
-        else
-        {
-            socktCmdDataLength = 0;
-        }
+            /* Calculate the read length. */
+            cellularStatus = _Cellular_GetSocketStat( cellularHandle, socketHandle, &socketStat );
 
+            if( ( cellularStatus == CELLULAR_SUCCESS ) && ( socketStat.status == TCP_SOCKET_STATE_CONNECTION_UP ) )
+            {
+                socktCmdDataLength = socketStat.rcvData;
+            }
+            else
+            {
+                socktCmdDataLength = 0;
+            }
+        }
+    }
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
         /* Update recvLen to maximum module length. */
         if( CELLULAR_MAX_RECV_DATA_LEN <= bufferLength )
         {
