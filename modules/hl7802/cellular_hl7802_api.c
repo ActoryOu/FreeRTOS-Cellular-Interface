@@ -579,7 +579,7 @@ static CellularError_t buildUdpSocketConfig( CellularSocketHandle_t socketHandle
         LogDebug( ( "buildUdpSocketConfig: Invalid command buffer" ) );
         cellularStatus = CELLULAR_BAD_PARAMETER;
     }
-    else if( socketHandle->socketProtocol != CELLULAR_SOCKET_PROTOCOL_TCP )
+    else if( socketHandle->socketProtocol != CELLULAR_SOCKET_PROTOCOL_UDP )
     {
         LogError( ( "buildUdpSocketConfig: socket protocol unsupported %d",
                     socketHandle->socketProtocol ) );
