@@ -114,6 +114,9 @@ typedef struct socketStat
 static const char * _socketSendSuccesTokenTable[] = { SOCKET_DATA_CONNECT_TOKEN };
 static const uint32_t _socketSendSuccesTokenTableLength = 1;
 
+/* KMP failure function calculated offline. */
+static const uint8_t _endPatternFailureFunction[ SOCKET_END_PATTERN_LEN ] = { 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 2 };
+
 /*-----------------------------------------------------------*/
 
 static CellularPktStatus_t _Cellular_RecvFuncGetSocketStat( CellularContext_t * pContext,
@@ -179,6 +182,8 @@ static CellularPktStatus_t _Cellular_RecvFuncGetSignalInfo( CellularContext_t * 
                                                             const CellularATCommandResponse_t * pAtResp,
                                                             void * pData,
                                                             uint16_t dataLen );
+static char * searchEndPatternPos( char * pString,
+                                   uint32_t stringLen );
 static CellularError_t _Cellular_StrCat( char * pDest,
                                          char * pSrc,
                                          int32_t maxLength );
@@ -361,6 +366,47 @@ static CellularError_t _Cellular_GetSocketStat( CellularHandle_t cellularHandle,
 
 /*-----------------------------------------------------------*/
 
+static char * searchEndPatternPos( char * pString,
+                                   uint32_t stringLen )
+{
+    char * pPattern = SOCKET_END_PATTERN;
+    uint32_t patternLen = SOCKET_END_PATTERN_LEN;
+    char * pch = NULL;
+    uint32_t i = 0;
+    uint32_t j = 0;
+
+    /* KMP search */
+    while( i < stringLen )
+    {
+        if( pString[ i ] != pPattern[ j ] )
+        {
+            if( j == 0 )
+            {
+                i++;
+                continue;
+            }
+
+            j = _endPatternFailureFunction[ j - 1 ];
+        }
+        else
+        {
+            i++;
+            j++;
+        }
+
+        if( j == patternLen )
+        {
+            /*pattern found, update the return value */
+            pch = pString + i - patternLen;
+            break;
+        }
+    }
+
+    return pch;
+}
+
+/*-----------------------------------------------------------*/
+
 static CellularPktStatus_t socketRecvDataPrefix( void * pCallbackContext,
                                                  char * pLine,
                                                  uint32_t lineLength,
@@ -369,6 +415,7 @@ static CellularPktStatus_t socketRecvDataPrefix( void * pCallbackContext,
 {
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     uint32_t * pRecvDataLength = ( uint32_t * ) pCallbackContext;
+    char * pch = NULL;
 
     if( ( pLine == NULL ) || ( ppDataStart == NULL ) || ( pDataLength == NULL ) || ( pCallbackContext == NULL ) )
     {
@@ -386,8 +433,20 @@ static CellularPktStatus_t socketRecvDataPrefix( void * pCallbackContext,
         {
             /* The string length of "CONNECT\r\n". */
             *ppDataStart = ( char * ) &pLine[ SOCKET_DATA_CONNECT_TOKEN_LEN + 2 ]; /* Indicate the data start in pLine. */
-            *pDataLength = *pRecvDataLength;                                       /* Return the data length from pCallbackContext. */
             *pRecvDataLength = 0;
+
+            /* Cound received payload length and find end pattern. */
+            pch = searchEndPatternPos( *ppDataStart, lineLength - ( SOCKET_DATA_CONNECT_TOKEN_LEN + 2 ) );
+
+            if( pch == NULL )
+            {
+                /*pattern not found */
+                *pDataLength = 0;
+            }
+            else
+            {
+                *pDataLength = pch - ( *ppDataStart ); /* Return the data length from pCallbackContext. */
+            }
         }
         else
         {
@@ -466,6 +525,7 @@ static CellularPktStatus_t _Cellular_RecvFuncData( CellularContext_t * pContext,
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     char * pInputLine = NULL, * pEndPatternLine = NULL;
     const _socketDataRecv_t * pDataRecv = ( _socketDataRecv_t * ) pData;
+    bool dropPacket = false;
 
     if( pContext == NULL )
     {
@@ -477,10 +537,23 @@ static CellularPktStatus_t _Cellular_RecvFuncData( CellularContext_t * pContext,
         LogError( ( "Receive Data: response is invalid" ) );
         pktStatus = CELLULAR_PKT_STATUS_FAILURE;
     }
-    else if( ( pAtResp->pItm->pNext == NULL ) || ( pAtResp->pItm->pNext->pNext == NULL ) )
+    else if( pAtResp->pItm->pNext == NULL )
     {
-        LogError( ( "Receive Data: response data or end pattern is invalid" ) );
+        LogError( ( "Receive Data: response data is invalid" ) );
         pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+    }
+    else if( ( pAtResp->pItm->pNext->pNext == NULL ) )
+    {
+        if( strncmp( pAtResp->pItm->pNext->pLine, SOCKET_END_PATTERN, SOCKET_END_PATTERN_LEN ) == 0 )
+        {
+            LogDebug( ( "Receive Data: no data to receive" ) );
+            *pDataRecv->pDataLen = 0;
+        }
+        else
+        {
+            LogError( ( "Receive Data: end pattern is invalid" ) );
+            pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+        }
     }
     else if( ( pDataRecv == NULL ) || ( pDataRecv->pData == NULL ) || ( pDataRecv->pDataLen == NULL ) )
     {
@@ -502,12 +575,15 @@ static CellularPktStatus_t _Cellular_RecvFuncData( CellularContext_t * pContext,
         /* Check the data end pattern. */
         if( strncmp( pEndPatternLine, SOCKET_END_PATTERN, SOCKET_END_PATTERN_LEN ) != 0 )
         {
-            LogError( ( "response item error in end pattern"SOCKET_END_PATTERN ) );
-            atCoreStatus = CELLULAR_AT_ERROR;
+            LogWarn( ( "response item error in end pattern"SOCKET_END_PATTERN ) );
+
+            /* Sometimes HL7802 return only part of end pattern.
+             * Drop the packet but keep cellular status OK */
+            dropPacket = true;
         }
 
         /* Process the data buffer. */
-        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        if( ( atCoreStatus == CELLULAR_AT_SUCCESS ) && !dropPacket )
         {
             atCoreStatus = getDataFromResp( pAtResp, pDataRecv, dataLen );
         }
@@ -1815,11 +1891,11 @@ CellularError_t Cellular_SocketClose( CellularHandle_t cellularHandle,
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     char cmdBuf[ CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
-    char tcpCloseAtCmd[] = "AT+KTCPRCV=";
-    char udpCloseAtCmd[] = "AT+KUDPRCV=";
+    char tcpCloseAtCmd[] = "AT+KTCPCLOSE=";
+    char udpCloseAtCmd[] = "AT+KUDPCLOSE=";
     char * pCloseAtCmd = NULL;
-    char tcpDeleteAtCmd[] = "AT+KTCPRCV=";
-    char udpDeleteAtCmd[] = "AT+KUDPRCV=";
+    char tcpDeleteAtCmd[] = "AT+KTCPDEL=";
+    char udpDeleteAtCmd[] = "AT+KUDPDEL=";
     char * pDeleteAtCmd = NULL;
     CellularAtReq_t atReqSocketClose =
     {
